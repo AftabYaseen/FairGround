@@ -1,5 +1,67 @@
 # Progress
 
+## Phase 4: Request flow (done)
+
+### What was built
+- **`submit_request()`** (`006_request_flow.sql`) is the only way to create a request: clients have no insert or update grant on `requests`. It runs in one transaction, in this order:
+  1. The caller is a client. Their profile row is locked so their submissions run one at a time.
+  2. Account status: suspended, or locked until a date, returns `ACCOUNT_LOCKED`. An expired lock drops back to "warned".
+  3. Email confirmed and phone verified, or `NOT_VERIFIED`.
+  4. A fairness acknowledgement exists for the current statement version, or `NO_ACK`.
+  5. No active request anywhere, or `ALREADY_ACTIVE`. The partial unique index is the final guard under concurrency.
+  6. Rate limits: 5 per day per user, and 10 per day per IP and per device. Otherwise `RATE_LIMITED`, plus a `rate_limit` flag.
+  7. Duplicate check: same category, same ZIP, and `similarity() >= 0.6` on the normalised title and description fingerprint within 72 hours. Otherwise `DUPLICATE_JOB`, which records a violation and applies the escalation ladder.
+  8. Provider available: the provider row is locked, then this month's non-invalid requests are counted. At the cap without overage, the provider is auto-paused (`cap_reached`) and the code is `PROVIDER_AT_CAP`. With overage opt-in the request is marked `is_overage`. Otherwise `PROVIDER_PAUSED`.
+  9. Insert the request and a `created` event. If this request uses up the allowance, pause the provider and report `provider_cap_reached` so the app can email them.
+- **`close_request()`** decides who may set which status:
+  - client: `closed_by_client`, with an optional "did you hire them"
+  - provider: `declined`, `completed` or `closed_by_provider`, where completing or closing requires an outcome (`OUTCOME_REQUIRED`)
+  - admin: `closed_by_admin`
+  It also records the event and updates the provider's average response time.
+- **`client_report_outcome()`** stores the client's "Did you hire them?" answer on closed requests.
+- **pg_cron** (UTC):
+  - `expire_requests()` every hour: expires requests older than `app_settings.request_expiry_days`
+  - `reset_cap_pauses()` at 00:05 on the 1st of each month
+  - `cleanup_rate_limits()` daily
+- **`/request/new?provider=slug`**:
+  - Client-only. An unverified phone is sent to `/verify-phone` first.
+  - Shows clear blockers for: active request, locked or suspended account, paused provider, and link-locked to another provider.
+  - On first use, the fairness acknowledgement step appears (statement text and version come from `app_settings`; IP and user agent are stored).
+  - The form is validated with zod: service (the provider's categories), title, description, ZIP, city and timing. Name is editable. The verified email and phone are shown read-only.
+  - Browse mode shows the one-provider notice. The entry path (`link` or `browse`) is decided on the server from the link-lock cookie, never from the URL.
+  - Every error code maps to a friendly title and message (`src/lib/request-codes.ts`). Duplicate violations also say which step of the ladder was applied.
+- **`/my-request`**:
+  - The active request with provider, dates, expiry and an activity timeline.
+  - Close it, with confirmation and an optional outcome. Closing also lifts the provider link lock.
+  - History with status badges and one-click "Did you hire them?" answers.
+  - Warning, lock and suspension banners.
+  - A link-locked client with no request can only continue with their provider. "Find a different provider" appears after a request to that provider has been resolved.
+- **Emails** (`src/lib/email.ts`, `src/lib/notifications.ts`) are wired in and fully used in Phase 5.
+
+### "Done when" evidence (run against the live project)
+| Check | Result |
+|---|---|
+| Second request while one is active, through the RPC | `ALREADY_ACTIVE` |
+| Second request by direct `insert into requests` | `permission denied for table requests` |
+| Direct `update requests set status` | `permission denied` |
+| Two different jobs submitted in parallel | `["ALREADY_ACTIVE","OK"]` |
+| Same job re-sent after the client closed it | 1st: `DUPLICATE_JOB` and warned. 2nd: `DUPLICATE_JOB` and locked for 7 days. Then any job: `ACCOUNT_LOCKED` |
+| Same job re-sent after the provider declined it | `OK` (allowed) |
+| No acknowledgement / provider account / anon | `NO_ACK` / `NOT_CLIENT` / `permission denied` |
+| Provider completes without an outcome; provider closes someone else's request | `OUTCOME_REQUIRED` / `NOT_FOUND` |
+| Request that fills the cap | `OK`, `provider_cap_reached: true`, provider paused `cap_reached` |
+| Request to a capped provider; after overage opt-in | `PROVIDER_AT_CAP`; then `OK` with `is_overage: true` |
+| Backdated request plus `expire_requests()` | Expired, with an `expired` event. 3 cron jobs active |
+| Link-locked client opening another provider's form | Blocked, "Your request stays with the provider whose link you used" |
+
+### Decisions to confirm with the client
+- **Which earlier requests count as a duplicate.** The brief says a declined job may go elsewhere ("If a provider cannot complete a job, you may submit a new request after closing the current one"). So a similar job within 72 hours is blocked only when the earlier request is still active, was closed by the client, or was completed. It is allowed when the provider declined or closed it, or it expired.
+- **Declined and closed requests still count toward the provider's monthly allowance.** Only admin "invalid" removes one.
+- **Rate limits** are 5 submissions per user and 10 per IP or device per 24 hours. IP and device are passed in from the server. Someone calling the RPC directly could fake them, but the per-user limit and every other rule still apply.
+
+### Test data
+Test providers "Test Pipes One/Two" and `fgt4-*@example.com` clients exist for Phase 5 testing. They are **unlisted**, so they don't appear in the public directory, and will be removed at the end.
+
 ## Phase 3: Provider profiles, link and directory (done)
 
 ### What was built

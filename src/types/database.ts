@@ -636,9 +636,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      client_report_outcome: {
+        Args: {
+          p_outcome: Database["public"]["Enums"]["request_outcome"]
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      close_request: {
+        Args: {
+          p_new_status: Database["public"]["Enums"]["request_status"]
+          p_note?: string
+          p_outcome?: Database["public"]["Enums"]["request_outcome"]
+          p_request_id: string
+        }
+        Returns: Json
+      }
       hit_rate_limit: {
         Args: { p_key: string; p_max: number; p_window_seconds: number }
         Returns: boolean
+      }
+      submit_request: {
+        Args: {
+          p_category_id: string
+          p_city: string
+          p_contact_name: string
+          p_description: string
+          p_device_fingerprint?: string
+          p_entry_path: Database["public"]["Enums"]["entry_path"]
+          p_ip?: string
+          p_preferred_timing: string
+          p_provider_slug: string
+          p_title: string
+          p_user_agent?: string
+          p_zip: string
+        }
+        Returns: Json
       }
     }
     Enums: {
