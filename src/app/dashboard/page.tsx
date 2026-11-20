@@ -1,12 +1,15 @@
-import { Container, PageHeader } from "@/components/ui/misc";
-import { requireRole } from "@/lib/auth";
+import { LinkButton } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/misc";
+import { requireProvider } from "@/lib/provider-session";
 
-// Placeholder until Phase 3 (onboarding) and Phase 5 (dashboard).
+// Overview is completed in Phase 5 (cap bar, new requests).
 export default async function DashboardPage() {
-  const { profile } = await requireRole("provider", "/dashboard");
+  const { provider } = await requireProvider("/dashboard");
   return (
-    <Container className="py-12">
-      <PageHeader title={`Welcome, ${profile.full_name || "provider"}`} description="Your provider dashboard is being set up." />
-    </Container>
+    <PageHeader
+      title={provider.business_name}
+      description="Your profile is live."
+      actions={<LinkButton href="/dashboard/link">Share your link</LinkButton>}
+    />
   );
 }

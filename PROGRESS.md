@@ -1,5 +1,45 @@
 # Progress
 
+## Phase 3: Provider profiles, link and directory (done)
+
+### What was built
+- **Onboarding wizard** (`/dashboard/onboarding`) in four steps: business details, services (up to 8 categories plus typical jobs), service area (city, state, ZIP list), and logo. If the server rejects a field, the wizard jumps back to that step. Finishing publishes the profile and lands on `/dashboard/link?welcome=1`. Every other dashboard page sends non-onboarded providers here, and sends unverified phones to `/verify-phone`.
+- **Profile editing** (`/dashboard/profile`) uses the same form and the same Server Action (`saveProviderProfile`), with zod validation. Website and ZIP values are normalised, and categories are replaced as a set.
+- **Logos**: Supabase Storage bucket `logos` (`003_storage_logos.sql`). Public read, PNG/JPG/WebP only, 2 MB limit. Writes are allowed only into `logos/<your user id>/`, and only by providers. Replacing a logo deletes the old file.
+- **Slugs** are generated in the database from the business name, with numeric suffixes for duplicates (`acme-plumbing-heat`, then `acme-plumbing-heat-2`). Providers cannot change them, so shared links never break.
+- **`/p/[slug]`**: the public profile. It shows logo, tagline, location, years in business, typical response time, services, typical jobs, service area and contact links, plus a request panel. The panel changes depending on who is viewing:
+  - paused provider
+  - client who already has an active request
+  - visitor link-locked to a different provider
+  - the provider viewing their own page
+  - other providers and admins
+- **Contractor link lock**: visiting `/p/[slug]` directly (the shared link) sets an `fg_link` cookie. Directory links use `?from=browse` and do not set it. While the cookie is set, the header and footer hide browse links, `/providers` redirects back to that provider, and other providers' pages show "Your request stays with that provider".
+- **`/dashboard/link`**: copy link, preview, a server-generated QR code (PNG download, using the `qrcode` package), and copyable share text.
+- **`/providers` directory**: filter by category and ZIP, 12 per page. It shows the notice "You may submit one active request to one provider at a time. Please review profiles carefully." Paused providers stay listed with "Not accepting requests right now" and sort after available ones.
+- **Dashboard shell**: a side nav (Overview, Requests, Profile, Request link, Settings). Pages not built yet (Requests, Settings) arrive in Phase 5.
+
+### Database changes
+- `003_storage_logos.sql`: logos bucket and storage policies.
+- `004_provider_slug_default.sql`: placeholder slug default, so inserts don't send a slug. The trigger always generates it.
+- `005_provider_defaults_invoker.sql`: **bug fix**. The provider insert trigger ran as SECURITY DEFINER, so it never saw that an end user was inserting, and the 12-month founding price lock was not set. It now runs as the caller. Existing rows were backfilled. Column grants had already stopped providers from setting their own plan or cap.
+
+### How to test
+1. Sign up as a provider, verify your phone, and complete the wizard.
+2. Open the link on `/dashboard/link` in a private window. You see only that provider. `/providers` redirects back to them.
+3. In a fresh private window, open `/providers`, filter by category and ZIP, and open a provider from the list. "Back to the directory" is shown.
+4. Pause the provider (Phase 5 settings, or SQL for now). The directory and profile show "Not accepting requests right now".
+
+Automated checks against the live project (temporary data, deleted afterwards):
+- Providers cannot set cap or plan on insert, change their slug, edit another provider, or add categories to another provider.
+- Pause rules work: a manual pause can be resumed. An admin pause is locked (`PAUSE_LOCKED`). A cap pause is locked (`CAP_REACHED`) until the provider opts in to overage, which lifts it.
+- Storage: own folder allowed. Another user's folder and client uploads are refused. Wrong MIME types are refused. Public URL returns 200. Anon cannot list files.
+- Anon gets the directory query and is refused `billing_status`.
+- Page checks: unknown slug returns 404. A link-locked visitor on `/providers` gets 307 to their provider. Onboarding redirects work.
+
+### Notes
+- The root `loading.tsx` was moved into the signed-in segments (dashboard, admin, my-request, request, account). That way public pages return real 404 and 307 status codes instead of streamed ones.
+- Signed-in clients can read the non-public columns of listed providers, such as `billing_status`, because RLS is row-level. Anonymous visitors can't. If this matters, a later change can move billing fields to a separate owner-only table.
+
 ## Phase 2: Accounts and verification (done)
 
 ### What was built

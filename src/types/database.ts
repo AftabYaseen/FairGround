@@ -326,7 +326,7 @@ export type Database = {
           profile_id: string
           requests_paused?: boolean
           service_zips?: string[]
-          slug: string
+          slug?: string
           state?: string | null
           tagline?: string | null
           typical_jobs?: string | null

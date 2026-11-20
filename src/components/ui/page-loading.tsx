@@ -1,6 +1,6 @@
 import { Container } from "@/components/ui/misc";
 
-export default function Loading() {
+export function PageLoading() {
   return (
     <Container className="py-16" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading</span>
