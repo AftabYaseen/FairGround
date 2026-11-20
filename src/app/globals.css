@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
+/* FairGround "Job Site" palette */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --charcoal: #1e2124;
+  --charcoal-2: #2c3035;
+  --plaster: #f3f0e9;
+  --plaster-2: #e8e3d8;
+  --white: #ffffff;
+  --line: #d6d0c2;
+  --muted: #5e646b;
+  --safety: #f2b705;
+  --safety-hover: #d9a404;
+  --steel: #3c5a73;
+  --steel-dark: #2e4759;
+  --success: #2f7d4f;
+  --danger: #b3261e;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-charcoal: var(--charcoal);
+  --color-charcoal-2: var(--charcoal-2);
+  --color-plaster: var(--plaster);
+  --color-plaster-2: var(--plaster-2);
+  --color-white: var(--white);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-safety: var(--safety);
+  --color-safety-hover: var(--safety-hover);
+  --color-steel: var(--steel);
+  --color-steel-dark: var(--steel-dark);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+
+  --font-heading: var(--font-bricolage);
+  --font-body: var(--font-figtree);
+  --font-sans: var(--font-figtree);
+
+  --radius-control: 6px;
+  --radius-card: 10px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--plaster);
+    color: var(--charcoal);
+    font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: inherit;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  /* Visible focus on everything: 2px yellow ring with a charcoal offset */
+  :focus-visible {
+    outline: 2px solid var(--safety);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px var(--charcoal);
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--safety);
+    color: var(--charcoal);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .link {
+    color: var(--steel);
+    font-weight: 500;
+    text-underline-offset: 3px;
+  }
+  .link:hover {
+    color: var(--steel-dark);
+    text-decoration: underline;
+  }
+
+  /* Hazard tape divider. Use sparingly (2 or 3 places). */
+  .safety-stripe {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--charcoal) 0 14px,
+      var(--safety) 14px 28px
+    );
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
