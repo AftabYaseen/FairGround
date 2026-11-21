@@ -636,6 +636,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_metrics: { Args: never; Returns: Json }
+      admin_resolve_flag: {
+        Args: {
+          p_flag_id: string
+          p_status: Database["public"]["Enums"]["abuse_flag_status"]
+        }
+        Returns: Json
+      }
+      admin_set_client_status: {
+        Args: {
+          p_client_id: string
+          p_note?: string
+          p_reset_violations?: boolean
+          p_status: Database["public"]["Enums"]["account_status"]
+        }
+        Returns: Json
+      }
+      admin_set_request_invalid: {
+        Args: { p_invalid: boolean; p_reason?: string; p_request_id: string }
+        Returns: Json
+      }
+      admin_update_provider: {
+        Args: {
+          p_admin_pause?: boolean
+          p_is_listed?: boolean
+          p_monthly_cap?: number
+          p_plan?: Database["public"]["Enums"]["plan_type"]
+          p_provider_id: string
+        }
+        Returns: Json
+      }
       client_report_outcome: {
         Args: {
           p_outcome: Database["public"]["Enums"]["request_outcome"]
@@ -655,6 +686,10 @@ export type Database = {
       hit_rate_limit: {
         Args: { p_key: string; p_max: number; p_window_seconds: number }
         Returns: boolean
+      }
+      provider_mark_request: {
+        Args: { p_action: string; p_request_id: string }
+        Returns: Json
       }
       submit_request: {
         Args: {

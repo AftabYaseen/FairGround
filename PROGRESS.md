@@ -1,5 +1,73 @@
 # Progress
 
+**Status: Phases 1 to 5 are complete. Stopped before Phase 6 (billing), as the brief requires, because the payment provider is not decided.**
+
+## Before going live: setup checklist
+These are dashboard or configuration steps that cannot be done from code or MCP:
+1. **Vercel environment variables**: copy every name in `.env.example`. Set `NEXT_PUBLIC_SITE_URL` to the Vercel URL and pick a long random `CRON_SECRET`. **Do not set `ALLOW_UNVERIFIED_PHONE` in production.**
+2. **Supabase Auth, URL Configuration**: set Site URL to the Vercel URL. Add `http://localhost:3000/**` and `https://fair-ground-two.vercel.app/**` to Redirect URLs.
+3. **Supabase Auth, SMTP**: set up custom SMTP (Resend offers SMTP). The built-in sender only reaches your own team's addresses.
+4. **Supabase Auth, password security**: turn on leaked password protection. This is the only remaining advisor warning.
+5. **Resend**: verify your sending domain, then set `RESEND_API_KEY` and `EMAIL_FROM`. Until then emails are logged as `skipped` in `notifications_log` and nothing breaks.
+6. **Twilio Verify**: create a Verify service and set the three `TWILIO_*` keys.
+7. **First admin**: sign up normally, then run `update profiles set role = 'admin' where email = '...';` in the SQL editor.
+
+## Phase 5: Provider inbox, cap and notifications (done)
+
+### What was built
+- **Provider dashboard** (`/dashboard`):
+  - "X of 15 used this month" cap bar (included and extra counted separately)
+  - paused banner with the reason
+  - new, open and typical-response stats
+  - open requests marked New, Opened or Responded
+- **Inbox** (`/dashboard/requests`): Open / Closed / All tabs, entry path, outcome, extra and not-billed badges.
+- **Request detail** (`/dashboard/requests/[id]`):
+  - The client's verified contact details, the job, and an activity timeline.
+  - Opening the page records "viewed". This runs from the browser on mount, so link prefetching never counts as a view.
+  - "I have contacted the client" marks the request responded and feeds the average response time.
+  - Mark completed / Close: outcome required (Hired / Not hired / No response), optional private note. Decline is also available.
+  - A collaboration hint suggests partnering with another provider.
+- **Settings** (`/dashboard/settings`):
+  - One-click pause and resume. An admin or billing pause can't be lifted by the provider.
+  - Overage opt-in. Turning it on needs a checkbox agreeing to the per-request price, which is read from `app_settings` for the provider's plan.
+  - Opting in lifts a cap pause straight away.
+  - Plan, monthly price and price-lock date.
+- **Auto-pause at cap**: enforced inside `submit_request` (Phase 4). The provider gets a "cap reached" email.
+- **Emails via Resend** (`src/lib/notifications.ts`). Every send is logged to `notifications_log` as `sent`, `failed` or `skipped`, and a failure never blocks the user.
+  - New request to the provider (client contact details included) and a confirmation to the client.
+  - Request closed or declined: sent to whichever side did not do it.
+  - Request expired: sent to both.
+  - Cap reached: sent to the provider.
+  - "Did you hire them?" to the client 5 days after a request closes. Their one-click answer is stored as `client_outcome`.
+- **Cron**: `vercel.json` runs `/api/cron/notifications` daily at 14:00 UTC, protected by `Authorization: Bearer $CRON_SECRET`. It sends the expiry emails and the 5-day follow-ups. Expiry itself still runs hourly in pg_cron.
+- **Admin area** (`/admin/*`). Guarded by the proxy and the layout, and every admin function checks `is_admin()` again inside the database:
+  - **Overview**: beta metrics. Requests per provider per week and per month, % of providers hitting the cap, % opted into overage, average response time, hire rate (from client outcome, falling back to provider outcome), link vs directory share, monthly table, busiest providers, open-flag alert.
+  - **Requests**: filter by status, entry path, invalid only, or search title or client email. The detail page shows lineage: entry path, provider, client status and violations, IP, device fingerprint (compared with the sign-up device), user agent, job fingerprint, the full event log with actors, and the client's other requests. Actions: close, and mark invalid or valid. Marking invalid frees the allowance and lifts a cap pause if the provider is under the cap again.
+  - **Clients**: search and status filter. Restore (resets violations), warn, lock 7 days, suspend. Every change is logged as a resolved `manual` flag.
+  - **Providers**: plan and included requests, list or unlist, admin pause or lift, this month's usage.
+  - **Abuse flags**: Open / Resolved / Dismissed queue with readable details (matched request and similarity), resolve, dismiss, reopen, restore client.
+  - **Settings**: edit `app_settings`, with prices entered in dollars and stored as cents, dates, limits and the fairness statement. "Publish as a new version" makes every client agree again.
+- **Public pages** so no link is dead: `/beta`, `/faq`, `/fairness-policy`, `/terms`, `/privacy`, `/contact`. They use simple versions of the copy from `docs/`, with prices from `app_settings`, and legal pages are marked "Draft, pending legal review". Phase 7 polishes them.
+
+### Database
+- `007_inbox_admin.sql`: `provider_mark_request`, `admin_set_request_invalid`, `admin_set_client_status`, `admin_resolve_flag`, `admin_update_provider`, `admin_metrics`, and an admin-only RLS update policy with a column grant on `app_settings`.
+
+### "Done when" evidence (live project; all test data deleted afterwards)
+- **Full loop**: provider created and onboarded, client submitted (`OK`), provider viewed, responded and completed with "hired", client confirmed "hired". Events were `created, viewed, responded, completed, closed`. Admin metrics went from 6 to 7 requests, hire rate 100% from 1 outcome, average response time set.
+- **Permissions**:
+  - A non-admin calling `admin_metrics` or `admin_set_request_invalid` gets `NOT_ALLOWED`.
+  - Admins can't suspend another admin, and can't change roles through the API (`permission denied`).
+  - Providers can't edit settings (0 rows) and can't lift an admin pause (`PAUSE_LOCKED`).
+- **Admin tools**: restoring a locked client gave active, 0 violations, lock cleared. Flag resolve, provider pause and unlist, and settings update all worked.
+- **Pages**: every provider and admin page returns 200 for its role and redirects for others. The cron route returns 401 without the secret. With the secret it processed 1 expired request, and both emails were logged `skipped` (no Resend key yet).
+- **Checks**: `npm run build` and `npm run lint` clean. No em dashes in `src/`. Every internal link on public pages returns 200.
+
+### Open questions
+- **Support contact**: no email address was provided. `/contact` currently says to reply to any FairGround email.
+- **Did-you-hire follow-up timing**: it goes out at the next daily cron run 5 or more days after closing. If hourly accuracy is wanted, the job can move to pg_cron with `pg_net`, or to a paid Vercel cron.
+- **Turning overage off while over the cap** does not pause immediately. The next request attempt returns `PROVIDER_AT_CAP` and pauses then.
+- **Changing "included requests" in settings** only applies to new providers. Existing providers are changed one by one on `/admin/providers`.
+
 ## Phase 4: Request flow (done)
 
 ### What was built
