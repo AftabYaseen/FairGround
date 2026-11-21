@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   included_requests: 15,
   beta_open: true,
   beta_signup_deadline: null,
+  billing_required: false,
   ga_launch_date: null,
   beta_monthly_cents: 3900,
   beta_setup_cents: 0,

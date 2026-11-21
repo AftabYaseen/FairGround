@@ -49,6 +49,16 @@ export default async function AdminRequestPage(props: PageProps<"/admin/requests
       .limit(10),
   ]);
   const client = r.profiles;
+  const { data: billedOverage } = r.is_overage
+    ? await supabase
+        .from("invoices")
+        .select("number")
+        .eq("provider_id", r.provider_id)
+        .eq("kind", "overage")
+        .eq("period_month", r.billing_month)
+        .eq("status", "paid")
+        .maybeSingle()
+    : { data: null };
 
   return (
     <div className="space-y-6">
@@ -175,6 +185,12 @@ export default async function AdminRequestPage(props: PageProps<"/admin/requests
                   the cap again.
                 </p>
                 {r.is_invalid && r.invalid_reason ? <p className="text-sm">Reason: {r.invalid_reason}</p> : null}
+                {r.is_overage && billedOverage ? (
+                  <p className="text-sm font-medium text-danger">
+                    This extra request was already billed on {billedOverage.number}. Marking it invalid does not refund it: issue a
+                    credit or refund in Authorize.net if needed.
+                  </p>
+                ) : null}
               </form>
             </CardBody>
           </Card>

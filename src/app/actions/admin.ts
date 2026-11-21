@@ -135,12 +135,13 @@ const settingsSchema = z.object({
   founding_lock_months: z.coerce.number().int().min(0).max(120),
   fairness_statement: z.string().trim().min(20).max(1000),
   bump_version: z.enum(["on", "off"]).default("off"),
+  billing_required: z.enum(["on", "off"]).default("off").transform((v) => v === "on"),
 });
 
 export async function adminUpdateSettings(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await checkRole("admin");
   if (!session) return { error: "Admin only." };
-  const parsed = settingsSchema.safeParse({ beta_open: "off", bump_version: "off", ...Object.fromEntries(formData) });
+  const parsed = settingsSchema.safeParse({ beta_open: "off", bump_version: "off", billing_required: "off", ...Object.fromEntries(formData) });
   if (!parsed.success) {
     return { error: "Please fix the highlighted fields.", fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
@@ -164,6 +165,7 @@ export async function adminUpdateSettings(_prev: FormState, formData: FormData):
       beta_capacity: s.beta_capacity,
       founding_lock_months: s.founding_lock_months,
       fairness_statement: s.fairness_statement,
+      billing_required: s.billing_required,
       fairness_statement_version: (current?.fairness_statement_version ?? 1) + (s.bump_version === "on" ? 1 : 0),
     })
     .eq("id", true);

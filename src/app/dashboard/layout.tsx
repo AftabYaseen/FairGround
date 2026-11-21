@@ -9,6 +9,7 @@ const NAV = [
   { href: "/dashboard/profile", label: "Profile" },
   { href: "/dashboard/link", label: "Request link" },
   { href: "/dashboard/settings", label: "Settings" },
+  { href: "/dashboard/billing", label: "Billing" },
 ];
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {

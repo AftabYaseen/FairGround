@@ -74,6 +74,7 @@ export type Database = {
           beta_overage_cents: number
           beta_setup_cents: number
           beta_signup_deadline: string | null
+          billing_required: boolean
           created_at: string
           fairness_statement: string
           fairness_statement_version: number
@@ -94,6 +95,7 @@ export type Database = {
           beta_overage_cents?: number
           beta_setup_cents?: number
           beta_signup_deadline?: string | null
+          billing_required?: boolean
           created_at?: string
           fairness_statement?: string
           fairness_statement_version?: number
@@ -114,6 +116,7 @@ export type Database = {
           beta_overage_cents?: number
           beta_setup_cents?: number
           beta_signup_deadline?: string | null
+          billing_required?: boolean
           created_at?: string
           fairness_statement?: string
           fairness_statement_version?: number
@@ -126,6 +129,122 @@ export type Database = {
           std_overage_cents?: number
           std_setup_cents?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      billing_accounts: {
+        Row: {
+          arb_subscription_id: string | null
+          authnet_customer_profile_id: string | null
+          authnet_payment_profile_id: string | null
+          canceled_at: string | null
+          card_brand: string | null
+          card_exp: string | null
+          card_last4: string | null
+          consent_at: string | null
+          consent_ip: string | null
+          consent_text: string | null
+          created_at: string
+          last_failure_at: string | null
+          last_failure_reason: string | null
+          last_reconciled_at: string | null
+          paid_through: string | null
+          price_notice_sent_at: string | null
+          provider_id: string
+          scheduled_amount_cents: number | null
+          scheduled_change_on: string | null
+          subscription_amount_cents: number | null
+          subscription_started_on: string | null
+          subscription_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          arb_subscription_id?: string | null
+          authnet_customer_profile_id?: string | null
+          authnet_payment_profile_id?: string | null
+          canceled_at?: string | null
+          card_brand?: string | null
+          card_exp?: string | null
+          card_last4?: string | null
+          consent_at?: string | null
+          consent_ip?: string | null
+          consent_text?: string | null
+          created_at?: string
+          last_failure_at?: string | null
+          last_failure_reason?: string | null
+          last_reconciled_at?: string | null
+          paid_through?: string | null
+          price_notice_sent_at?: string | null
+          provider_id: string
+          scheduled_amount_cents?: number | null
+          scheduled_change_on?: string | null
+          subscription_amount_cents?: number | null
+          subscription_started_on?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          arb_subscription_id?: string | null
+          authnet_customer_profile_id?: string | null
+          authnet_payment_profile_id?: string | null
+          canceled_at?: string | null
+          card_brand?: string | null
+          card_exp?: string | null
+          card_last4?: string | null
+          consent_at?: string | null
+          consent_ip?: string | null
+          consent_text?: string | null
+          created_at?: string
+          last_failure_at?: string | null
+          last_failure_reason?: string | null
+          last_reconciled_at?: string | null
+          paid_through?: string | null
+          price_notice_sent_at?: string | null
+          provider_id?: string
+          scheduled_amount_cents?: number | null
+          scheduled_change_on?: string | null
+          subscription_amount_cents?: number | null
+          subscription_started_on?: string | null
+          subscription_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_accounts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
+            referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_events: {
+        Row: {
+          error: string | null
+          event_type: string
+          id: string
+          notification_id: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          error?: string | null
+          event_type: string
+          id?: string
+          notification_id: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          error?: string | null
+          event_type?: string
+          id?: string
+          notification_id?: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
         }
         Relationships: []
       }
@@ -163,6 +282,74 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount_cents: number
+          attempted_at: string | null
+          authnet_subscription_id: string | null
+          authnet_transaction_id: string | null
+          created_at: string
+          description: string
+          failure_reason: string | null
+          id: string
+          kind: Database["public"]["Enums"]["invoice_kind"]
+          number: string
+          paid_at: string | null
+          period_month: string | null
+          provider_id: string
+          quantity: number
+          status: Database["public"]["Enums"]["invoice_status"]
+          unit_cents: number
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          attempted_at?: string | null
+          authnet_subscription_id?: string | null
+          authnet_transaction_id?: string | null
+          created_at?: string
+          description: string
+          failure_reason?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["invoice_kind"]
+          number?: string
+          paid_at?: string | null
+          period_month?: string | null
+          provider_id: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["invoice_status"]
+          unit_cents: number
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          attempted_at?: string | null
+          authnet_subscription_id?: string | null
+          authnet_transaction_id?: string | null
+          created_at?: string
+          description?: string
+          failure_reason?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["invoice_kind"]
+          number?: string
+          paid_at?: string | null
+          period_month?: string | null
+          provider_id?: string
+          quantity?: number
+          status?: Database["public"]["Enums"]["invoice_status"]
+          unit_cents?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "providers"
             referencedColumns: ["id"]
           },
         ]
@@ -475,6 +662,7 @@ export type Database = {
           is_overage: boolean
           outcome: Database["public"]["Enums"]["request_outcome"] | null
           outcome_note: string | null
+          overage_price_cents: number | null
           preferred_timing: string | null
           provider_id: string
           responded_at: string | null
@@ -514,6 +702,7 @@ export type Database = {
           is_overage?: boolean
           outcome?: Database["public"]["Enums"]["request_outcome"] | null
           outcome_note?: string | null
+          overage_price_cents?: number | null
           preferred_timing?: string | null
           provider_id: string
           responded_at?: string | null
@@ -553,6 +742,7 @@ export type Database = {
           is_overage?: boolean
           outcome?: Database["public"]["Enums"]["request_outcome"] | null
           outcome_note?: string | null
+          overage_price_cents?: number | null
           preferred_timing?: string | null
           provider_id?: string
           responded_at?: string | null
@@ -720,6 +910,8 @@ export type Database = {
       account_status: "active" | "warned" | "locked" | "suspended"
       billing_status: "not_started" | "active" | "past_due" | "canceled"
       entry_path: "link" | "browse"
+      invoice_kind: "setup_fee" | "subscription" | "overage"
+      invoice_status: "pending" | "paid" | "failed" | "void"
       paused_reason: "manual" | "cap_reached" | "billing" | "admin"
       plan_type: "beta" | "standard"
       request_event_type:
@@ -879,6 +1071,8 @@ export const Constants = {
       account_status: ["active", "warned", "locked", "suspended"],
       billing_status: ["not_started", "active", "past_due", "canceled"],
       entry_path: ["link", "browse"],
+      invoice_kind: ["setup_fee", "subscription", "overage"],
+      invoice_status: ["pending", "paid", "failed", "void"],
       paused_reason: ["manual", "cap_reached", "billing", "admin"],
       plan_type: ["beta", "standard"],
       request_event_type: [

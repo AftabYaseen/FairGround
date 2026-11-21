@@ -1,6 +1,95 @@
 # Progress
 
-**Status: Phases 1 to 5 are complete. Stopped before Phase 6 (billing), as the brief requires, because the payment provider is not decided.**
+**Status: Phases 1 to 5 are complete. Phase 6 (billing, Authorize.net) is built and tested up to the payment processor. A live sandbox test is waiting on sandbox keys.**
+
+## Phase 6: Billing with Authorize.net (built, live sandbox test pending)
+
+### How payments work
+- **Card entry: Accept.js.** The card form loads Accept.js from Authorize.net (sandbox: `jstest.authorize.net`, production: `js.authorize.net`). It turns the card into a single-use nonce that lasts 15 minutes.
+  - The card inputs have no `name` attributes, so they can never be submitted to our server.
+  - The Server Action receives only the nonce and the billing address.
+  - Authorize.net stores the card in a Customer Profile (CIM). We store the profile ids (server-only columns) plus brand, last 4 digits and expiry.
+- **Monthly plan: ARB.** One subscription per provider, created from the customer profile, monthly, ongoing (`totalOccurrences 9999`). The start date is "today" in Mountain Time, so Authorize.net runs the first charge at about 2:00 a.m. Pacific. The price is the founding or standard monthly price from `app_settings`.
+- **One-off charges: charge the customer profile.**
+  - Setup fee: charged once, when the subscription starts. A decline stops the sign-up before any subscription is created.
+  - Extra requests: billed at month end for the previous month (cron, days 1 to 7). Each request is billed at the price **snapshotted when it arrived** (`requests.overage_price_cents`, set by a trigger), so later price edits never apply retroactively. A unique index allows only one overage invoice per provider per month, so re-runs can never double-charge.
+- **Invoices** (`invoices`, numbered `FG-001001` onwards) cover setup fees, every ARB payment and month-end extras. Providers see them on `/dashboard/billing`, with a printable invoice or receipt page.
+- **Consent**: the exact authorisation text (amounts, included requests, extras only if opted in, the price lock, no refunds) must be ticked. It is stored with a timestamp and IP. The server rebuilds the text itself rather than trusting the browser.
+
+### Failed payments
+- **Detection, two ways:**
+  1. Signed webhooks (`/api/webhooks/authnet`). The `X-ANET-Signature` HMAC-SHA512 is checked in constant time. Each event is logged once by `notificationId`, a 200 is returned straight away, and the work runs afterwards with `after()`.
+  2. A daily reconciliation (`/api/cron/billing`) that asks ARB for each subscription's status and transaction list, so a missed webhook can't leave a non-paying provider active.
+- **On failure**: `billing_status = past_due`. New requests are paused with reason `billing`, which the provider cannot lift (`PAUSE_LOCKED`). They get an email with a link to update their card. An admin pause is never overwritten.
+- **Recovery**: updating the card attaches it to the subscription (which corrects a suspended one), retries everything owed, and lifts the pause once all is paid. A terminated subscription is restarted on the new card.
+- **Cancel**: cancels the ARB subscription. The provider keeps receiving requests until the end of the period they paid for, then the daily job pauses them.
+
+### Founding price lock
+Sixty days before `plan_price_locked_until`, the provider gets an email notice. The change date is the later of the lock end and 60 days from the notice. On that date the ARB amount moves to the standard price and the plan becomes `standard`. The billing page shows the scheduled change.
+
+### Requiring billing (switch, off by default)
+`app_settings.billing_required`, on `/admin/settings`:
+- Turning it on pauses every provider without an active subscription (reason `billing`), and new providers start paused until they subscribe.
+- Turning it off releases only providers who never set up billing, never those with failed payments.
+
+Until you turn it on, nothing changes for existing providers.
+
+### Database
+- `008_billing.sql`:
+  - tables `billing_accounts`, `invoices`, `billing_events`
+  - `invoice_kind` and `invoice_status` enums
+  - `requests.overage_price_cents` with its snapshot trigger
+  - `app_settings.billing_required` with its pause and release trigger
+  - RLS: providers read their own summary and invoices; admins read all; `billing_events` is admin only; Authorize.net profile ids are never readable by end users; only the server writes
+- `009_billing_reconcile.sql`: `last_reconciled_at`, so the daily job checks the oldest accounts first, up to 40 per run.
+
+### Pages and routes
+- `/dashboard/billing`: plan, status, card on file, paid through, amount due, price-change notice, start or restart, update card, cancel, invoices. Sandbox mode shows a "Test mode" banner.
+- `/dashboard/billing/invoices/[id]`: printable invoice or receipt.
+- `/admin/billing`: active and past-due counts, collected this month, unpaid invoices, every account, recent invoices, webhook log.
+- `/admin/requests/[id]`: warns if an extra request was already billed before an admin marks it invalid (marking it invalid does not refund it).
+- `/api/webhooks/authnet` and `/api/cron/billing`. The billing cron runs daily at 13:00 UTC; see `vercel.json`.
+
+### What has been tested (live Supabase project, test data deleted afterwards)
+| Check | Result |
+|---|---|
+| Extra request price snapshot | `is_overage: true`, `overage_price_cents: 800` (founding price) |
+| Provider reads own billing summary | brand, last 4, status visible |
+| Provider reads Authorize.net profile ids | `permission denied` |
+| Client reads invoices; provider writes an invoice | 0 rows; `permission denied` |
+| Second overage invoice for the same month | `23505` (unique index) |
+| Provider lifts a billing pause or sets `billing_status` | `PAUSE_LOCKED`; `permission denied` |
+| `billing_required` on / new provider / off | unbilled provider paused (`billing`), new provider starts paused, released when turned off. Past-due provider stays paused |
+| Webhook: no signature / wrong / tampered body | 401 / 401 / 401 |
+| Webhook: valid signature (`sha512=` uppercase, and bare lowercase) | 200, logged and processed after the response |
+| Webhook: same notification twice | 200 `duplicate: true`, logged once |
+| Billing cron without keys / without secret | `skipped`; 401 |
+| Billing page without keys | "Billing is not available yet", invoices and past-due banner still shown |
+| `npm run build` and `npm run lint` | clean |
+
+### Not yet tested: needs sandbox keys
+The live calls to Authorize.net have not run yet:
+- create customer profile from a nonce
+- setup fee charge
+- ARB create, update and cancel
+- month-end charge
+- transaction details for webhooks
+- reconciliation
+
+See "Sandbox setup" below.
+
+### Sandbox setup
+1. Create a free sandbox account at developer.authorize.net. In the sandbox Merchant Interface, go to Account, Settings, Security Settings:
+   - **API Credentials & Keys**: copy the API Login ID, create a Transaction Key, and create a Signature Key.
+   - **Manage Public Client Key**: create the Public Client Key.
+2. Put them in `.env.local` (and later Vercel), using the names in `.env.example`, with `NEXT_PUBLIC_AUTHNET_ENV=sandbox`.
+3. Webhooks (Account, Webhooks): point to `https://fair-ground-two.vercel.app/api/webhooks/authnet` with the events `net.authorize.payment.authcapture.created` and `net.authorize.customer.subscription.*` (suspended, terminated, cancelled, failed, expired). Webhooks can't reach `localhost`, but the daily reconciliation covers local testing.
+4. Test cards: 4111 1111 1111 1111 (Visa) with any future expiry. In the sandbox, an amount of $70.02 triggers a decline for testing failures.
+
+### Open questions
+- **Refunds for extra requests marked invalid after they were billed**: the admin page warns, but refunds and credits are done by hand in the Authorize.net Merchant Interface for now.
+- **PCI scope**: Accept.js with our own card fields is SAQ A-EP. Authorize.net's hosted form (AcceptUI or Accept Hosted) would reduce this to SAQ A. Switching later is a small change to the card form only.
+- **Plan changes mid-month** (admin switches a provider's plan) take effect on the subscription from the next price-lock or admin action. They are not prorated.
 
 ## Before going live: setup checklist
 These are dashboard or configuration steps that cannot be done from code or MCP:

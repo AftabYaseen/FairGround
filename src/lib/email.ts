@@ -9,7 +9,10 @@ export type EmailTemplate =
   | "request_closed"
   | "request_expired"
   | "cap_reached"
-  | "hire_followup";
+  | "hire_followup"
+  | "billing_started"
+  | "billing_payment_failed"
+  | "billing_price_notice";
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);

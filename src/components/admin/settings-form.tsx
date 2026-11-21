@@ -74,6 +74,18 @@ export function AdminSettingsForm({ s }: { s: Tables<"app_settings"> }) {
       </section>
 
       <section className="space-y-4">
+        <h2 className="text-[22px]">Billing</h2>
+        <label className="flex gap-3 text-[15px]">
+          <Checkbox name="billing_required" defaultChecked={s.billing_required} />
+          <span>
+            Require an active subscription to receive requests. When turned on, providers without one are paused (reason:
+            billing) until they subscribe. Turning it off releases providers who never set up billing, but not those with failed
+            payments.
+          </span>
+        </label>
+      </section>
+
+      <section className="space-y-4">
         <h2 className="text-[22px]">Fairness statement</h2>
         <Field label={`Statement (version ${s.fairness_statement_version})`} htmlFor="fairness_statement" error={fe.fairness_statement}>
           <Textarea id="fairness_statement" name="fairness_statement" defaultValue={s.fairness_statement} maxLength={1000} />
