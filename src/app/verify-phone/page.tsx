@@ -11,7 +11,7 @@ import { phoneBypassAllowed } from "@/lib/twilio";
 export const metadata: Metadata = { title: "Verify your phone" };
 
 export default async function VerifyPhonePage(props: PageProps<"/verify-phone">) {
-  const { profile } = await requireRole(["client", "provider", "admin"], "/verify-phone");
+  const { profile } = await requireRole("client", "/verify-phone");
   const sp = await props.searchParams;
   const next = typeof sp.next === "string" ? safeNext(sp.next, "") : "";
   const change = sp.change === "1";

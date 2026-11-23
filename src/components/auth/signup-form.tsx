@@ -64,7 +64,12 @@ export function SignupForm({ defaultRole }: { defaultRole?: "provider" | "client
       <Field label="Email" htmlFor="email" error={fe.email} hint="We will send you a link to confirm it.">
         <Input id="email" name="email" type="email" autoComplete="email" defaultValue={v.email} aria-invalid={Boolean(fe.email)} required />
       </Field>
-      <Field label="Mobile phone" htmlFor="phone" error={fe.phone} hint="We verify it with a text message. One account per number.">
+      <Field
+        label={role === "provider" ? "Business phone" : "Mobile phone"}
+        htmlFor="phone"
+        error={fe.phone}
+        hint={role === "provider" ? "Your main business number." : "We verify it with a text message. One account per number."}
+      >
         <Input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="(555) 123-4567" defaultValue={v.phone} aria-invalid={Boolean(fe.phone)} required />
       </Field>
       <Field label="Password" htmlFor="password" error={fe.password} hint="At least 8 characters.">

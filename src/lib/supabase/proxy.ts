@@ -11,7 +11,7 @@ const GUARDS: { prefix: string; roles: Role[] }[] = [
   { prefix: "/my-request", roles: ["client"] },
   { prefix: "/request", roles: ["client"] },
   { prefix: "/account", roles: ["client", "provider", "admin"] },
-  { prefix: "/verify-phone", roles: ["client", "provider", "admin"] },
+  { prefix: "/verify-phone", roles: ["client"] },
 ];
 
 function matchGuard(pathname: string) {

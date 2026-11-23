@@ -51,16 +51,28 @@ export default async function AccountPage() {
                 <dd className="mt-1 break-all text-muted">{email ?? profile.email}</dd>
               </div>
               <div>
-                <dt className="text-sm font-semibold">Phone</dt>
+                <dt className="text-sm font-semibold">{profile.role === "client" ? "Phone" : "Business phone"}</dt>
                 <dd className="mt-1 flex flex-wrap items-center gap-2 text-muted">
                   <span className="tabular">{formatPhone(profile.phone) || "Not set"}</span>
-                  {profile.phone_verified_at ? <Badge tone="success">Verified</Badge> : <Badge tone="warning">Not verified</Badge>}
+                  {profile.role === "client" ? (
+                    profile.phone_verified_at ? <Badge tone="success">Verified</Badge> : <Badge tone="warning">Not verified</Badge>
+                  ) : null}
                 </dd>
-                <dd className="mt-2">
-                  <Link href={profile.phone_verified_at ? "/verify-phone?change=1" : "/verify-phone"} className="link text-sm">
-                    {profile.phone_verified_at ? "Change phone number" : "Verify now"}
-                  </Link>
-                </dd>
+                {profile.role === "client" ? (
+                  <dd className="mt-2">
+                    <Link href={profile.phone_verified_at ? "/verify-phone?change=1" : "/verify-phone"} className="link text-sm">
+                      {profile.phone_verified_at ? "Change phone number" : "Verify now"}
+                    </Link>
+                  </dd>
+                ) : profile.role === "provider" ? (
+                  <dd className="mt-2 text-sm text-muted">
+                    The number clients see is set on your{" "}
+                    <Link href="/dashboard/profile" className="link">
+                      public profile
+                    </Link>
+                    .
+                  </dd>
+                ) : null}
               </div>
               <div>
                 <dt className="text-sm font-semibold">Member since</dt>

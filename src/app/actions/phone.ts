@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getSession } from "@/lib/auth";
+import { checkRole } from "@/lib/auth";
 import type { FormState } from "@/lib/form-state";
 import { toE164 } from "@/lib/format";
 import { postLoginPath } from "@/lib/post-login";
@@ -19,6 +19,7 @@ async function phoneTakenByOther(phone: string, userId: string): Promise<boolean
     .select("id")
     .eq("phone", phone)
     .not("phone_verified_at", "is", null)
+    .eq("role", "client")
     .neq("id", userId)
     .limit(1);
   return Boolean(data && data.length > 0);
@@ -26,8 +27,9 @@ async function phoneTakenByOther(phone: string, userId: string): Promise<boolean
 
 /** Step 1: save the (unverified) number on the profile and send an SMS code. */
 export async function sendPhoneCode(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await getSession();
-  if (!session?.profile) return { error: "Please log in again." };
+  // Phone verification is for clients only.
+  const session = await checkRole("client");
+  if (!session) return { error: "Only client accounts verify a phone number." };
 
   const phone = toE164(String(formData.get("phone") ?? ""));
   if (!phone) {
@@ -87,8 +89,9 @@ export async function sendPhoneCode(_prev: FormState, formData: FormData): Promi
 
 /** Step 2: check the code and mark the phone verified. */
 export async function checkPhoneCode(_prev: FormState, formData: FormData): Promise<FormState> {
-  const session = await getSession();
-  if (!session?.profile) return { error: "Please log in again." };
+  // Phone verification is for clients only.
+  const session = await checkRole("client");
+  if (!session) return { error: "Only client accounts verify a phone number." };
   const phone = session.profile.phone;
   if (!phone) return { error: "Enter your phone number first." };
 

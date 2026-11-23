@@ -56,13 +56,15 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     return { error: "Too many accounts have been created from this device today.", values };
   }
 
-  // One account per phone number.
-  try {
+  // One account per phone number, for clients only. Providers may share a business line.
+  if (input.role === "client") {
+    try {
     const admin = createAdminClient();
     const { data: taken } = await admin
       .from("profiles")
       .select("id")
       .eq("phone", input.phone)
+      .eq("role", "client")
       .not("phone_verified_at", "is", null)
       .limit(1);
     if (taken && taken.length > 0) {
@@ -72,8 +74,9 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
         values,
       };
     }
-  } catch (err) {
-    console.error("[signup] phone uniqueness check skipped:", err);
+    } catch (err) {
+      console.error("[signup] phone uniqueness check skipped:", err);
+    }
   }
 
   const supabase = await createClient();

@@ -23,7 +23,7 @@ export default async function CheckEmailPage(props: PageProps<"/signup/check-ema
         <MailCheck aria-hidden className="size-10 text-steel" />
         <p>
           We sent a confirmation link to <strong className="break-all">{address || "your email address"}</strong>. Open it to
-          confirm your account. Then we will ask you to verify your phone.
+          confirm your account. Clients then verify their phone by text message.
         </p>
         <p className="text-sm text-muted">The link works once. Check your spam folder if it does not arrive in a few minutes.</p>
         {address ? <ResendConfirmationForm email={address} /> : null}

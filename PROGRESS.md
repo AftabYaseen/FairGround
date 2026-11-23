@@ -2,6 +2,14 @@
 
 **Status: Phases 1 to 5 are complete. Phase 6 (billing, Authorize.net) is built and tested up to the payment processor. A live sandbox test is waiting on sandbox keys.**
 
+## Decision log
+- **2026-11-23: Phone verification is for clients only** (confirmed by Deirdre).
+  - Providers enter a business phone at sign-up, but no SMS code is sent and nothing sends them to `/verify-phone`. That covers login, the email callback, onboarding, dashboard guards, the proxy and the account page. `/verify-phone` is now a client-only route.
+  - Onboarding prefills the public phone with that business number.
+  - Clients must still verify before submitting. `submit_request` keeps `NOT_VERIFIED`, and it only ever applies to clients because non-clients get `NOT_CLIENT` first.
+  - One account per phone is enforced for clients only (sign-up check and the verify step). Providers can share a business number.
+  - The existing database unique index only covers verified phones, and providers are never verified, so it already behaves as client-only. A migration narrowing it to `role = 'client'` was proposed and not applied.
+
 ## Phase 6: Billing with Authorize.net (built, live sandbox test pending)
 
 ### How payments work

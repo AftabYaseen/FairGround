@@ -4,13 +4,13 @@ import { ProviderProfileForm } from "@/components/provider/profile-form";
 import { Card, CardBody } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/misc";
 import { requireRole } from "@/lib/auth";
+import { formatPhone } from "@/lib/format";
 import { getCategories, getOwnProvider } from "@/lib/providers";
 
 export const metadata: Metadata = { title: "Set up your profile" };
 
 export default async function OnboardingPage() {
   const session = await requireRole("provider", "/dashboard/onboarding");
-  if (!session.profile.phone_verified_at) redirect("/verify-phone?next=/dashboard/onboarding");
   const existing = await getOwnProvider(session.userId);
   if (existing?.onboarded_at) redirect("/dashboard");
   const categories = await getCategories();
@@ -32,7 +32,7 @@ export default async function OnboardingPage() {
               tagline: "",
               description: "",
               typical_jobs: "",
-              phone_public: "",
+              phone_public: formatPhone(session.profile.phone),
               website: "",
               city: "",
               state: "",
